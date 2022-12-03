@@ -12,14 +12,16 @@ using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types.ReplyMarkups;
 using Update = Telegram.Bot.Types.Update;
 using Telegram.Bot.Types.Enums;
+using TelegramBotLab.BotUpdates;
 
 class Program
 {
     static ITelegramBotClient bot = new TelegramBotClient(BotInfo.token);
-
+    static User me;
+    
     static async Task Main(string[] args)
     {
-        var me = await bot.GetMeAsync();
+        me = await bot.GetMeAsync();
         Console.WriteLine($"Bot {me.Id}, called {me.FirstName} starts working!");
         
         var cts = new CancellationTokenSource();
@@ -45,7 +47,7 @@ class Program
 
         if (message.Text == "/start")
         {
-            
+            var msg = await Greeting.GreetMessage(botClient, me, message, cancellationToken);
         }
     }
 
