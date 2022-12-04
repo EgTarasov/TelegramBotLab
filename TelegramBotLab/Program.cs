@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
@@ -48,6 +49,23 @@ class Program
         if (message.Text == "/start")
         {
             var msg = await Greeting.GreetMessage(botClient, me, message, cancellationToken);
+        }
+
+        if (message.Text == "/get_id")
+        {
+            await Greeting.GetUserId(botClient, message, cancellationToken);
+        }
+
+        if (Regex.IsMatch(message.Text ?? "", @"^/solve\s+\d+\s*[+-/*]\s*\d+\s*$"))
+        {
+            await Solve.Solver(botClient, message, cancellationToken);
+        }
+        else
+        {
+            await botClient.SendTextMessageAsync(
+                chatId: message.Chat.Id,
+                text: "I cant understand you",
+                cancellationToken: cancellationToken);
         }
     }
 

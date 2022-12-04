@@ -1,3 +1,5 @@
+using Dapper;
+using Microsoft.Data.Sqlite;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.InputFiles;
@@ -21,6 +23,7 @@ public static class Greeting
         Message message,
         CancellationToken cts)
     {
+        //Create greeting message from possible options
         var random = new Random();
         var ind = random.Next(0, 5);
         var greetMessage = string.Format(
@@ -44,7 +47,37 @@ public static class Greeting
                 photo: new InputOnlineFile(greetMessage),
                 cancellationToken: cts);
         }
-
+        
+        await Utilits.AddMessageInfo(message.Chat, message, sendMessage);
+        //Add user to database
+        try
+        {
+            if (await Utilits.IsUserExist(message.Chat.Id))
+            {
+                throw new ArgumentException("User has been already added to database!");
+            }
+            await using var conn = new SqliteConnection(BotInfo.connectionString);
+            await conn.ExecuteAsync($"INSERT INTO Users (UserId, Name)" +
+                                    $"VALUES ({message.Chat.Id}, '{message.Chat.Username}');");
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
         return sendMessage;
+    }
+
+    public static async Task<Message> GetUserId(
+        ITelegramBotClient botClient,
+        Message response,
+        CancellationToken cts)
+    {
+        var reply = await botClient.SendTextMessageAsync(
+            chatId: response.Chat.Id,
+            text: $"Your ID is {response.Chat.Id}",
+            cancellationToken: cts
+        );
+        await Utilits.AddMessageInfo(response.Chat, response, reply);
+        return reply;
     }
 }
