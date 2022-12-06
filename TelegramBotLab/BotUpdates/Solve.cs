@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 
@@ -6,79 +8,44 @@ namespace TelegramBotLab.BotUpdates;
 
 public class Solve
 {
-    public static async Task<Message> Solver(ITelegramBotClient botClient, Message response, CancellationToken cts)
+    public static async Task<Message> Solver(ITelegramBotClient botClient, Message request, CancellationToken cts)
     {
         var reply = new Message();
+        var input = request.Text![6..];
+
+        var values = Regex
+            .Split(input, @"[+\-*\/]")
+            .Select(decimal.Parse)
+            .ToList();
+        if (values.Count != 2)
+        {
+            throw new ArgumentException("Too many values");
+        }
+
         try
         {
-            var input = response.Text![6..];
-            if (input.Contains("+"))
+            var operation = Regex.Match(input, @"[+\-\/*]").Value;
+            var replyText = operation switch
             {
-                var values = input.Split("+");
-                if (values.Length != 2)
-                {
-                    throw new ArgumentException();
-                }
+                "+" => Solver(values[0], values[1], (a, b) => a + b).ToString(CultureInfo.InvariantCulture),
+                "-" => Solver(values[0], values[1], (a, b) => a - b).ToString(CultureInfo.InvariantCulture),
+                "*" => Solver(values[0], values[1], (a, b) => a * b).ToString(CultureInfo.InvariantCulture),
+                "/" => Solver(values[0], values[1], (a, b) => a / b).ToString(CultureInfo.InvariantCulture),
+            };
+            Console.WriteLine(replyText);
 
-                reply = await botClient.SendTextMessageAsync(
-                    response.Chat.Id,
-                    text: Solver(int.Parse(values[0]), int.Parse(values[1]), (a, b) => a + b).ToString(),
-                    cancellationToken: cts);
-            }
-
-            else if (input.Contains("-"))
-            {
-                var values = input.Split("-");
-                if (values.Length != 2)
-                {
-                    throw new ArgumentException();
-                }
-
-                reply = await botClient.SendTextMessageAsync(
-                    response.Chat.Id,
-                    text: Solver(int.Parse(values[0]), int.Parse(values[1]), (a, b) => a - b).ToString(),
-                    cancellationToken: cts);
-            }
-
-            else if (input.Contains("*"))
-            {
-                var values = input.Split("*");
-
-                if (values.Length != 2)
-                {
-                    throw new ArgumentException();
-                }
-
-                reply = await botClient.SendTextMessageAsync(
-                    response.Chat.Id,
-                    text: Solver(int.Parse(values[0]), int.Parse(values[1]), (a, b) => a * b).ToString(),
-                    cancellationToken: cts);
-            }
-
-            else if (input.Contains("/"))
-            {
-                var values = input.Split("/");
-
-                if (values.Length != 2)
-                {
-                    throw new ArgumentException();
-                }
-
-                reply = await botClient.SendTextMessageAsync(
-                    response.Chat.Id,
-                    text: Solver(int.Parse(values[0]), int.Parse(values[1]), (a, b) => a / b).ToString(),
-                    cancellationToken: cts);
-            }
+            reply = await botClient.SendTextMessageAsync(
+                request.Chat.Id,
+                text: replyText,
+                cancellationToken: cts);
         }
-        catch (Exception)
+        catch
         {
-            throw new ArgumentException();
+            throw new ArgumentException("Can't solve this example");
         }
-
-        await Utilits.AddMessageInfo(response.Chat, response, reply);
 
         return reply;
     }
 
-    private static int Solver(int a, int b, Func<int, int, int> f) => f(a, b);
+    private static decimal Solver(decimal a, decimal b, Func<decimal, decimal, decimal> f) => f(a, b);
 }

@@ -15,14 +15,22 @@ public static class Utilits
         { "/currency", "Show current info about popular currency" },
     };
 
-    public static async Task GetHelpMessage(ITelegramBotClient botClient)
+    public static async Task<Message> GetHelpMessage(
+        ITelegramBotClient botClient,
+        Message request,
+        CancellationToken cts)
     {
         var helpMessage = new List<string>();
         foreach (var command in _commands.Keys)
         {
             helpMessage.Add(command);
         }
-        await botClient
+
+        var reply = await botClient.SendTextMessageAsync(
+            chatId: request.Chat.Id,
+            text: string.Join(Environment.NewLine, helpMessage),
+            cancellationToken: cts);
+        return reply;
     }
     public static async Task<bool> IsUserExist(long userId)
     {
@@ -32,15 +40,15 @@ public static class Utilits
     }
     public static async Task AddMessageInfo(
         Chat user,
-        Message response,
+        Message request,
         Message reply)
     {
         try
         {
             await using var conn = new SqliteConnection(BotInfo.connectionString);
             await conn.ExecuteAsync($"INSERT INTO UsersMessages " +
-                                    $"(UserId, ResponceInfo, ReplyInfo)" +
-                                    $"VALUES ({user.Id}, '{response.Text.Replace("\'", "")}', '{reply.Text}');");
+                                    $"(UserId, RequestInfo, ReplyInfo)" +
+                                    $"VALUES ({user.Id}, '{request.Text.Replace("\'", "")}', '{reply.Text}');");
         }
         catch(Exception ex)
         {

@@ -47,37 +47,28 @@ public static class Greeting
                 photo: new InputOnlineFile(greetMessage),
                 cancellationToken: cts);
         }
-        
-        await Utilits.AddMessageInfo(message.Chat, message, sendMessage);
-        //Add user to database
-        try
+
+        if (await Utilits.IsUserExist(message.Chat.Id))
         {
-            if (await Utilits.IsUserExist(message.Chat.Id))
-            {
-                throw new ArgumentException("User has been already added to database!");
-            }
-            await using var conn = new SqliteConnection(BotInfo.connectionString);
-            await conn.ExecuteAsync($"INSERT INTO Users (UserId, Name)" +
-                                    $"VALUES ({message.Chat.Id}, '{message.Chat.Username}');");
+            throw new Exception("User has been already added to database!");
         }
-        catch(Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
+
+        await using var conn = new SqliteConnection(BotInfo.connectionString);
+        await conn.ExecuteAsync($"INSERT INTO Users (UserId, Name)" +
+                                $"VALUES ({message.Chat.Id}, '{message.Chat.Username}');");
         return sendMessage;
     }
 
     public static async Task<Message> GetUserId(
         ITelegramBotClient botClient,
-        Message response,
+        Message request,
         CancellationToken cts)
     {
         var reply = await botClient.SendTextMessageAsync(
-            chatId: response.Chat.Id,
-            text: $"Your ID is {response.Chat.Id}",
+            chatId: request.Chat.Id,
+            text: $"Your ID is {request.Chat.Id}",
             cancellationToken: cts
         );
-        await Utilits.AddMessageInfo(response.Chat, response, reply);
         return reply;
     }
 }

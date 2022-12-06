@@ -1,34 +1,26 @@
 ﻿using System.Text.Json;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
-using Telegram.Bot.Exceptions;
-using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
-using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.InputFiles;
-using Telegram.Bot.Types.ReplyMarkups;
-using TelegramBotLab;
-using Telegram.Bot;
-using Telegram.Bot.Extensions.Polling;
-using Telegram.Bot.Types.ReplyMarkups;
-using Update = Telegram.Bot.Types.Update;
-using Telegram.Bot.Types.Enums;
 using TelegramBotLab.BotUpdates;
+using Update = Telegram.Bot.Types.Update;
 
-class Program
+namespace TelegramBotLab;
+
+internal static class Program
 {
-    static ITelegramBotClient bot = new TelegramBotClient(BotInfo.token);
-    static User me;
+    private static readonly ITelegramBotClient Bot = new TelegramBotClient(BotInfo.token);
+    static User _me = null!;
     
     static async Task Main(string[] args)
     {
-        me = await bot.GetMeAsync();
-        Console.WriteLine($"Bot {me.Id}, called {me.FirstName} starts working!");
+        _me = await Bot.GetMeAsync();
+        Console.WriteLine($"Bot {_me.Id}, called {_me.FirstName} starts working!");
         
         var cts = new CancellationTokenSource();
         var cancellationToken = cts.Token;
         
-        bot.StartReceiving(
+        Bot.StartReceiving(
             updateHandler: HandleUpdateAsync,
             errorHandler: HandleErrorAsync,
             cancellationToken: cancellationToken);
@@ -41,31 +33,61 @@ class Program
         Update update,
         CancellationToken cancellationToken)
     {
-        if (update.Message is not { } message)
+        try
         {
-            return;
-        }
+            if (update.Message is not { } message)
+            {
+                return;
+            }
 
-        if (message.Text == "/start")
-        {
-            var msg = await Greeting.GreetMessage(botClient, me, message, cancellationToken);
-        }
+            if ((message.From ?? _me).IsBot is true)
+            {
+                return;
+            }
 
-        if (message.Text == "/get_id")
-        {
-            await Greeting.GetUserId(botClient, message, cancellationToken);
-        }
+            var reply = new Message();
+            if (message.Text == "/start")
+            {
+                reply = await Greeting.GreetMessage(botClient, _me, message, cancellationToken);
+            }
 
-        if (Regex.IsMatch(message.Text ?? "", @"^/solve\s+\d+\s*[+-/*]\s*\d+\s*$"))
-        {
-            await Solve.Solver(botClient, message, cancellationToken);
+            else if (message.Text == "/get_id")
+            {
+                await Greeting.GetUserId(botClient, message, cancellationToken);
+            }
+
+            else if (Regex.IsMatch(message.Text ?? "", @"^/solve\s+(?:\d+\.?\d*)\s*[+\-\/*]\s*(?:\d+\.?\d*)\s*$"))
+            {
+                reply = await Solve.Solver(botClient, message, cancellationToken);
+            }
+            else if (message.Text!.StartsWith("/currency"))
+            {
+                reply = await Currency.GetCurrencyInfo(botClient, message, cancellationToken);
+            }
+            else if (Regex.IsMatch(message.Text, $".*@{_me.Username}.*"))
+            {
+                reply = await botClient.SendTextMessageAsync(
+                    chatId: message.Chat.Id,
+                    text: "What do you need?",
+                    cancellationToken: cancellationToken);
+            }
+
+            await Utilits.AddMessageInfo(message.Chat, message, reply);
         }
-        else
+        catch (ArgumentException ex)
         {
-            await botClient.SendTextMessageAsync(
-                chatId: message.Chat.Id,
-                text: "I cant understand you",
+            var errorMessage = await botClient.SendTextMessageAsync(
+                chatId: update.Message!.Chat.Id,
+                text: ex.Message,
                 cancellationToken: cancellationToken);
+            await Utilits.AddMessageInfo(
+                update.Message!.Chat,
+                update.Message!,
+                errorMessage);
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
         }
     }
 
