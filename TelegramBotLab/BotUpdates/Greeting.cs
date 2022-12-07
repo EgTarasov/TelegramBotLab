@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Telegram.Bot;
@@ -6,9 +7,9 @@ using Telegram.Bot.Types.InputFiles;
 
 namespace TelegramBotLab.BotUpdates;
 
-public static class Greeting
+public  class Greeting: IUpdate
 {
-    private static readonly List<string> GreetingsMessages = new List<string>()
+    private  readonly List<string> GreetingsMessages = new List<string>()
     {
         "Hello, {0}!\nMy name is {1}. Reporting for duty!",
         "Glad to see you {0}\n{1} to your services",
@@ -17,12 +18,12 @@ public static class Greeting
         "https://www.newmynamepix.com/upload/post/sample/1625490990_Good%20Morning%20Wishes%20Messages%20Quotes%20Card%20On%20Name%20Write.jpg",
     };
 
-    public static async Task<Message> GreetMessage(
+    async Task<Message> IUpdate.Update(
         ITelegramBotClient botClient,
-        User bot,
         Message message,
         CancellationToken cts)
     {
+        var bot = await botClient.GetMeAsync(cancellationToken: cts);
         //Create greeting message from possible options
         var random = new Random();
         var ind = random.Next(0, 5);
@@ -50,25 +51,12 @@ public static class Greeting
 
         if (await Utilits.IsUserExist(message.Chat.Id))
         {
-            throw new Exception("User has been already added to database!");
+            throw new DataException("User has been already added to database!");
         }
 
         await using var conn = new SqliteConnection(BotInfo.connectionString);
         await conn.ExecuteAsync($"INSERT INTO Users (UserId, Name)" +
                                 $"VALUES ({message.Chat.Id}, '{message.Chat.Username}');");
         return sendMessage;
-    }
-
-    public static async Task<Message> GetUserId(
-        ITelegramBotClient botClient,
-        Message request,
-        CancellationToken cts)
-    {
-        var reply = await botClient.SendTextMessageAsync(
-            chatId: request.Chat.Id,
-            text: $"Your ID is {request.Chat.Id}",
-            cancellationToken: cts
-        );
-        return reply;
     }
 }

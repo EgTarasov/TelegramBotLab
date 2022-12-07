@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Data;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -10,13 +11,8 @@ namespace TelegramBotLab;
 internal static class Program
 {
     private static readonly ITelegramBotClient Bot = new TelegramBotClient(BotInfo.token);
-    static User _me = null!;
-    
     static async Task Main(string[] args)
     {
-        _me = await Bot.GetMeAsync();
-        Console.WriteLine($"Bot {_me.Id}, called {_me.FirstName} starts working!");
-        
         var cts = new CancellationTokenSource();
         var cancellationToken = cts.Token;
         
@@ -40,38 +36,18 @@ internal static class Program
                 return;
             }
 
-            if ((message.From ?? _me).IsBot is true)
+            if ((message.From ?? await botClient.GetMeAsync(cancellationToken)).IsBot is true)
             {
                 return;
             }
-
-            var reply = new Message();
-            if (message.Text == "/start")
-            {
-                reply = await Greeting.GreetMessage(botClient, _me, message, cancellationToken);
-            }
-
-            else if (message.Text == "/get_id")
-            {
-                await Greeting.GetUserId(botClient, message, cancellationToken);
-            }
-
-            else if (Regex.IsMatch(message.Text ?? "", @"^/solve\s+(?:\d+\.?\d*)\s*[+\-\/*]\s*(?:\d+\.?\d*)\s*$"))
-            {
-                reply = await Solve.Solver(botClient, message, cancellationToken);
-            }
-            else if (message.Text!.StartsWith("/currency"))
-            {
-                reply = await Currency.GetCurrencyInfo(botClient, message, cancellationToken);
-            }
-            else if (Regex.IsMatch(message.Text, $".*@{_me.Username}.*"))
-            {
-                reply = await botClient.SendTextMessageAsync(
-                    chatId: message.Chat.Id,
-                    text: "What do you need?",
-                    cancellationToken: cancellationToken);
-            }
-
+            
+            var operation = await ParseUpdate.GetCommand(botClient, message, cancellationToken);
+            var reply = await (operation
+                         ?? throw new ArgumentException("Incorrect command"))
+                .Update(
+                    botClient,
+                    message,
+                    cancellationToken);
             await Utilits.AddMessageInfo(message.Chat, message, reply);
         }
         catch (ArgumentException ex)
@@ -85,8 +61,11 @@ internal static class Program
                 update.Message!,
                 errorMessage);
         }
+        catch(DataException){}
         catch(Exception ex)
         {
+            await using var sw = new StreamWriter("Logs.txt");
+            await sw.WriteAsync(ex.Message);
             Console.WriteLine(ex.Message);
         }
     }

@@ -5,10 +5,10 @@ using Telegram.Bot.Types;
 
 namespace TelegramBotLab.BotUpdates;
 
-public static class Currency
+public class Currency: IUpdate
 {
-    private const string DatePattern =
-        @" <input class=""datepicker-filter_input"" type=""hidden"" name=""UniDbQuery.To"" value=""(\d\d\.\d\d\.\d\d)"" />";
+    private const string DatePattern = 
+        @"<input class=""datepicker-filter_input"" type=""hidden"" name=""UniDbQuery.To"" value=""(\d\d\.\d\d\.\d\d\d\d)"" />";
 
     private const string RequestWithCurrency = @"/currency ([\w\s]+)";
 
@@ -32,14 +32,71 @@ public static class Currency
         "156", //Китайская Юань
     };
 
-    public static async Task<Message> GetCurrencyInfo(
+    async Task<Message> IUpdate.Update(
         ITelegramBotClient botClient,
         Message request,
         CancellationToken cts
     )
     {
-        var reply = new Message();
         var httpClient = new HttpClient();
+        var query = await httpClient.GetStringAsync("https://www.cbr.ru/currency_base/daily/", cts);
+        
+        var info = await GetInfo(request.Text ?? "", query);
+
+        var date = Regex.Match(
+                query,
+                DatePattern)
+            .Groups[1].Value;
+        return await botClient.SendTextMessageAsync(
+            chatId: request.Chat.Id,
+            text: $"Today is {date}{Environment.NewLine}" +
+                  $"{string.Join(Environment.NewLine, info)}",
+            cancellationToken: cts);
+    }
+
+    public async Task<List<string>> GetInfo(string text, string query)
+    {
+
+        var info = new List<string>();
+        if (Regex.IsMatch(text!, RequestWithCurrency))
+        {
+            var currencyName = Regex
+                .Match(
+                    text!,
+                    RequestWithCurrency)
+                .Groups[1]
+                .Value
+                .Trim();
+            if (currencyName == "all currencies")
+            {
+                throw new ArgumentException("Че еще хочешь?");
+            }
+            var match = Regex.Match(query, string.Format(CurrencyNamePattern, currencyName));
+            if (match.Success is false)
+            {
+                throw new ArgumentException("Such currency does not exist");
+            }
+
+            info.Add($"{currencyName}: {match.Groups[1].Value}");
+        }
+        else if (Regex.IsMatch(text, @"^/currency$"))
+        {
+            foreach (var number in _currencyNumbers)
+            {
+                var match = Regex.Match(query, string.Format(CurrencyNumberPattern, number));
+                info.Add($"{match.Groups[1].Value}: {match.Groups[2].Value}");
+            }
+        }
+        else
+        {
+            throw new ArgumentException("Incorrect input");
+        }
+
+        return info;
+    }
+}
+/*
+         var httpClient = new HttpClient();
         var query = await httpClient.GetStringAsync("https://www.cbr.ru/currency_base/daily/", cts);
 
         var info = new List<string>();
@@ -71,16 +128,4 @@ public static class Currency
         else
         {
             throw new ArgumentException("Incorrect input");
-        }
-
-        var date = Regex.Match(
-                query,
-                DatePattern)
-            .Groups[1].Value;
-        return await botClient.SendTextMessageAsync(
-            chatId: request.Chat.Id,
-            text: $"Today is {date}{Environment.NewLine}" +
-                  $"{string.Join(Environment.NewLine, info)}",
-            cancellationToken: cts);
-    }
-}
+        }*/
