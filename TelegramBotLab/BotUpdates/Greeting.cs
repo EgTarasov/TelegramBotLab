@@ -49,14 +49,14 @@ public  class Greeting: IUpdate
                 cancellationToken: cts);
         }
 
-        if (await Utilits.IsUserExist(message.Chat.Id))
+        if (await Utilits.IsUserExist(message.Chat))
         {
             throw new DataException("User has been already added to database!");
         }
 
         await using var conn = new SqliteConnection(BotInfo.connectionString);
         await conn.ExecuteAsync($"INSERT INTO Users (UserId, Name)" +
-                                $"VALUES ({message.Chat.Id}, '{message.Chat.Username}');");
+                                $"VALUES (@Id, @Username);", message.Chat);
         return sendMessage;
     }
 }

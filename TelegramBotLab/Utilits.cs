@@ -1,21 +1,25 @@
+using System.Net.NetworkInformation;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using TelegramBotLab.BotUpdates;
 
 namespace TelegramBotLab;
 
-public static class Utilits
+public class Utilits: IUpdate
 {
     private static Dictionary<string, string> _commands = new Dictionary<string, string>()
     {
         { "/start", "Show greeting message" },
         { "/get_id", "Show user Id" },
-        { "/solve", "get two numbers and symbol and solve equation" },
-        { "/currency", "Show current info about popular currency" },
+        { "/solve", "get two numbers and symbol and solve equation(32 + 12)" },
+        { "/currency", "Show current info about popular currency(/currency or /currency Доллар США)" },
     };
+    
+    
 
-    public static async Task<Message> GetHelpMessage(
+    public async Task<Message> Update(
         ITelegramBotClient botClient,
         Message request,
         CancellationToken cts)
@@ -23,7 +27,7 @@ public static class Utilits
         var helpMessage = new List<string>();
         foreach (var command in _commands.Keys)
         {
-            helpMessage.Add(command);
+            helpMessage.Add(command + "\t" +_commands[command]);
         }
 
         var reply = await botClient.SendTextMessageAsync(
@@ -32,11 +36,13 @@ public static class Utilits
             cancellationToken: cts);
         return reply;
     }
-    public static async Task<bool> IsUserExist(long userId)
+    public static async Task<bool> IsUserExist(Chat chat)
     {
         await using var conn = new SqliteConnection(BotInfo.connectionString);
-        var lines = await conn.ExecuteAsync($"Select * from Users where UserId = {userId}");
-        return lines != 1;
+        var lines = (await conn
+                    .QueryAsync<Models.User>("Select * from Users where UserId = @Id", chat))
+                    .ToList();
+        return lines.Count == 1;
     }
     public static async Task AddMessageInfo(
         Chat user,
@@ -49,6 +55,10 @@ public static class Utilits
             await conn.ExecuteAsync($"INSERT INTO UsersMessages " +
                                     $"(UserId, RequestInfo, ReplyInfo)" +
                                     $"VALUES ({user.Id}, '{request.Text.Replace("\'", "")}', '{reply.Text}');");
+            await conn.ExecuteAsync($"INSERT INTO UsersMessages " +
+                                    $"(UserId, RequestInfo, ReplyInfo)" +
+                                    $"VALUES (@Id, '{request.Text.Replace("\'", "")}', '{reply.Text}');", user);
+
         }
         catch(Exception ex)
         {

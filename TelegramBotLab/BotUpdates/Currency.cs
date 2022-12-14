@@ -35,8 +35,7 @@ public class Currency: IUpdate
     async Task<Message> IUpdate.Update(
         ITelegramBotClient botClient,
         Message request,
-        CancellationToken cts
-    )
+        CancellationToken cts)
     {
         var httpClient = new HttpClient();
         var query = await httpClient.GetStringAsync("https://www.cbr.ru/currency_base/daily/", cts);
@@ -56,7 +55,6 @@ public class Currency: IUpdate
 
     public async Task<List<string>> GetInfo(string text, string query)
     {
-
         var info = new List<string>();
         if (Regex.IsMatch(text!, RequestWithCurrency))
         {

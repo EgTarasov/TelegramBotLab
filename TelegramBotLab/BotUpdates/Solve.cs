@@ -61,10 +61,10 @@ public class Solve: IUpdate
             .Split(input, @"[+\-*\/]")
             .Select(decimal.Parse)
             .ToList();
-        if (values.Count != 2)
-        {
-            throw new ArgumentException("Too many values");
-        }
+        // if (values.Count != 2)
+        // {
+        //     throw new ArgumentException("Too many values");
+        // }
 
         return values;
     }

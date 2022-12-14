@@ -1,3 +1,4 @@
+using System.Data;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -12,7 +13,15 @@ public static class ParseUpdate
         CancellationToken cancellationToken)
     {
         var me = await botClient.GetMeAsync(cancellationToken);
+        if (request.Text is null)
+        {
+            return null;
+        }
 
+        if (request.Text == "/help")
+        {
+            return new Utilits();
+        }
         if (request.Text == "/start")
         {
 
@@ -36,10 +45,11 @@ public static class ParseUpdate
         
         if (Regex.IsMatch(request.Text, $".*@{me.Username}.*"))
         {
-            var reply = await botClient.SendTextMessageAsync(
+            await botClient.SendTextMessageAsync(
                 chatId: request.Chat.Id,
                 text: "What do you need?",
                 cancellationToken: cancellationToken);
+            throw new DataException();
         }
 
         return null;

@@ -1,1 +1,1 @@
-No such host is known. (www.cbr.ru:443)
+A parameterless default constructor or one matching signature (System.Int64 ID, System.Int64 UserId, System.String Name) is required for TelegramBotLab.Models.User materialization
